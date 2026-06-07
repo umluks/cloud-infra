@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.0.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
 # AWS Provider Configuration
 # Define a região padrão da AWS.
 provider "aws" {
@@ -12,6 +23,8 @@ resource "aws_security_group" "sfbjj" {
 
   # Libera a porta 80 (HTTP) para acesso público.
   ingress {
+    #tfsec:ignore:aws-ec2-no-public-ingress-sgr
+    description = "Acesso HTTP publico"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -21,6 +34,7 @@ resource "aws_security_group" "sfbjj" {
   # Libera a porta 22 (SSH) para conexões administrativas.
   # Atenção: Em produção, restrinja o IP.
   ingress {
+    description = "Acesso SSH restrito"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -29,6 +43,8 @@ resource "aws_security_group" "sfbjj" {
 
   # Libera todo o tráfego de saída.
   egress {
+    #tfsec:ignore:aws-ec2-no-public-egress-sgr
+    description = "Permitir saida pra internet"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -56,6 +72,14 @@ resource "aws_instance" "sfbjj" {
   vpc_security_group_ids = [aws_security_group.sfbjj.id]
 
   iam_instance_profile = "ECR_ROLE_SFBJJ"
+
+  metadata_options {
+    http_tokens = "required"
+  }
+
+  root_block_device {
+    encrypted = true
+  }
 
   # Script de inicialização.
   user_data = file("./user_data.sh")
