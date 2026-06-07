@@ -2,6 +2,7 @@ name: Terraform CI/CD
 
 on:
   workflow_dispatch:
+    # Entradas manuais que decidem quais etapas serão executadas
     inputs:
       plan:
         description: 'Executar Terraform Plan?'
@@ -13,6 +14,14 @@ on:
           - 'false'
       apply:
         description: 'Executar Terraform Apply?'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      plan_destroy:
+        description: 'Planejar Terraform Destroy?'
         required: true
         default: 'false'
         type: choice
@@ -32,6 +41,7 @@ permissions:
   contents: read
   id-token: write
 
+# Variáveis globais reutilizadas em todos os jobs
 env:
   AWS_REGION: us-east-1
   ROLE_TO_ASSUME: arn:aws:iam::215436574250:role/GithubInfraRole
@@ -39,6 +49,7 @@ env:
   WORKING_DIRECTORY: ./infra
 
 jobs:
+  # 1. Job de Plan: Valida o código e cria um plano do que será alterado
   terraform-plan:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
@@ -80,6 +91,7 @@ jobs:
           path: ${{ env.WORKING_DIRECTORY }}/tfplan
           retention-days: 1
 
+  # 2. Job de Apply: Baixa o plano criado anteriormente e aplica na AWS
   terraform-apply:
     name: 'Terraform Apply'
     runs-on: ubuntu-latest
@@ -115,9 +127,47 @@ jobs:
       - name: 'Terraform Apply'
         run: terraform apply -auto-approve tfplan
 
+  # 3. Job de Plan Destroy: Planeja a destruição da infraestrutura
+  terraform-plan-destroy:
+    name: 'Terraform Plan Destroy'
+    runs-on: ubuntu-latest
+    if: github.event.inputs.plan_destroy == 'true' || github.event.inputs.destroy == 'true'
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v5.0.0
+      
+      - name: 'Configure AWS Credentials'
+        uses: aws-actions/configure-aws-credentials@v4.3.1
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 'Set up Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      
+      - name: 'Terraform Init'
+        run: terraform init
+        
+      - name: 'Terraform Plan Destroy'
+        run: terraform plan -destroy -out=tfplan_destroy
+
+      - name: 'Upload Plan Destroy Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan_destroy
+          path: ${{ env.WORKING_DIRECTORY }}/tfplan_destroy
+          retention-days: 1
+
+  # 4. Job de Destroy: Baixa o plano de destruição e destrói a infraestrutura
   terraform-destroy:
     name: 'Terraform Destroy'
     runs-on: ubuntu-latest
+    needs: terraform-plan-destroy
     if: github.event.inputs.destroy == 'true'
     defaults:
       run:
@@ -140,5 +190,11 @@ jobs:
       - name: 'Terraform Init'
         run: terraform init
         
+      - name: 'Download Plan Destroy Artifact'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan_destroy
+          path: ${{ env.WORKING_DIRECTORY }}
+          
       - name: 'Terraform Destroy'
-        run: terraform destroy -auto-approve
+        run: terraform apply -destroy -auto-approve tfplan_destroy
