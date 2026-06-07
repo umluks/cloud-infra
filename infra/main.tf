@@ -47,26 +47,26 @@ resource "aws_key_pair" "sfbjj" {
 # Instância principal que hospedará a aplicação.
 resource "aws_instance" "sfbjj" {
   # Imagem base do SO.
-  ami           = "ami-00e801948462f718a"
-  
+  ami = "ami-00e801948462f718a"
+
   # Capacidade da instância (CPU/RAM).
   instance_type = "t3.micro"
-  
-  # Security Group da instância.
-    vpc_security_group_ids = [aws_security_group.sfbjj.id]
 
-    iam_instance_profile = "ECR_ROLE_SFBJJ"
-   
+  # Security Group da instância.
+  vpc_security_group_ids = [aws_security_group.sfbjj.id]
+
+  iam_instance_profile = "ECR_ROLE_SFBJJ"
+
   # Script de inicialização.
   user_data = file("./user_data.sh")
-  
+
   # Chave SSH vinculada.
   key_name = aws_key_pair.sfbjj.key_name
-  
+
   # Identificação do recurso.
   tags = {
-    Name = "sfbjj"
+    Name          = "sfbjj"
     ProvisionedBy = "Terraform"
-    GitHub = "github.com/umluks/sfbjj"
+    GitHub        = "github.com/umluks/sfbjj"
   }
 }
