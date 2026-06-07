@@ -32,30 +32,34 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  AWS_REGION: us-east-1
+  ROLE_TO_ASSUME: arn:aws:iam::215436574250:role/GithubInfraRole
+  TERRAFORM_VERSION: 1.15.5
+  WORKING_DIRECTORY: ./infra
+
 jobs:
-  terraform:
-    name: 'Terraform'
+  terraform-plan:
+    name: 'Terraform Plan'
     runs-on: ubuntu-latest
-    
+    if: github.event.inputs.plan == 'true' || github.event.inputs.apply == 'true'
     defaults:
       run:
-        working-directory: ./infra
-        
-    steps: 
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    steps:
       - name: 'Checkout'
         uses: actions/checkout@v5.0.0
       
       - name: 'Configure AWS Credentials'
         uses: aws-actions/configure-aws-credentials@v4.3.1
         with:
-          role-to-assume: arn:aws:iam::215436574250:role/GithubInfraRole
-          aws-region: us-east-1 
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: 'Set up Terraform'
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.15.5
-          terraform_wrapper: true
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
       
       - name: 'Terraform Init'
         run: terraform init
@@ -68,12 +72,73 @@ jobs:
         
       - name: 'Terraform Plan'
         run: terraform plan -out=tfplan
-        if: github.event.inputs.plan == 'true' || github.event.inputs.apply == 'true'
 
+      - name: 'Upload Plan Artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIRECTORY }}/tfplan
+          retention-days: 1
+
+  terraform-apply:
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.event.inputs.apply == 'true'
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v5.0.0
+      
+      - name: 'Configure AWS Credentials'
+        uses: aws-actions/configure-aws-credentials@v4.3.1
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 'Set up Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: 'Terraform Init'
+        run: terraform init
+
+      - name: 'Download Plan Artifact'
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: ${{ env.WORKING_DIRECTORY }}
+        
       - name: 'Terraform Apply'
         run: terraform apply -auto-approve tfplan
-        if: github.event.inputs.apply == 'true'
 
+  terraform-destroy:
+    name: 'Terraform Destroy'
+    runs-on: ubuntu-latest
+    if: github.event.inputs.destroy == 'true'
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@v5.0.0
+      
+      - name: 'Configure AWS Credentials'
+        uses: aws-actions/configure-aws-credentials@v4.3.1
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 'Set up Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+      
+      - name: 'Terraform Init'
+        run: terraform init
+        
       - name: 'Terraform Destroy'
         run: terraform destroy -auto-approve
-        if: github.event.inputs.destroy == 'true'
