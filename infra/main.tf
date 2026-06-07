@@ -40,7 +40,7 @@ resource "aws_security_group" "sfbjj" {
 # Importa chave SSH local para acesso à EC2.
 resource "aws_key_pair" "sfbjj" {
   key_name   = "sfbjj-keypar"
-  public_key = file("~/.ssh/id_rsa.pub")
+  public_key = file("${path.module}/sfbjj.pub")
 }
 
 # EC2 Instance
