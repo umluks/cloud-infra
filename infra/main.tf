@@ -23,7 +23,6 @@ resource "aws_security_group" "sfbjj" {
 
   # Libera a porta 80 (HTTP) para acesso público.
   ingress {
-    #tfsec:ignore:aws-ec2-no-public-ingress-sgr
     description = "Acesso HTTP publico"
     from_port   = 80
     to_port     = 80
@@ -43,7 +42,6 @@ resource "aws_security_group" "sfbjj" {
 
   # Libera todo o tráfego de saída.
   egress {
-    #tfsec:ignore:aws-ec2-no-public-egress-sgr
     description = "Permitir saida pra internet"
     from_port   = 0
     to_port     = 0

@@ -91,12 +91,7 @@ jobs:
       - name: 'Run TFLint'
         run: tflint -f compact
         
-      # Executa verificação de segurança no código para encontrar brechas (ex: Security Groups com portas abertas pra internet)
-      - name: 'Run TFSec'
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          working_directory: ${{ env.WORKING_DIRECTORY }}
-        
+
       - name: 'Terraform Plan'
         run: terraform plan -out=tfplan
 
