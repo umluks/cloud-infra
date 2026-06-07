@@ -81,6 +81,22 @@ jobs:
       - name: 'Terraform Fmt'
         run: terraform fmt -check -recursive 
         
+      # Instala o TFLint no runner
+      - name: 'Setup TFLint'
+        uses: terraform-linters/setup-tflint@v3
+        with:
+          tflint_version: latest
+
+      # Executa a verificação estática (Lint) para achar erros não triviais e melhorar a qualidade do código Terraform
+      - name: 'Run TFLint'
+        run: tflint -f compact
+        
+      # Executa verificação de segurança no código para encontrar brechas (ex: Security Groups com portas abertas pra internet)
+      - name: 'Run TFSec'
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ${{ env.WORKING_DIRECTORY }}
+        
       - name: 'Terraform Plan'
         run: terraform plan -out=tfplan
 
@@ -131,7 +147,11 @@ jobs:
   terraform-plan-destroy:
     name: 'Terraform Plan Destroy'
     runs-on: ubuntu-latest
-    if: github.event.inputs.plan_destroy == 'true' || github.event.inputs.destroy == 'true'
+    needs: terraform-apply
+    if: |
+      always() && 
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
+      (github.event.inputs.plan_destroy == 'true' || github.event.inputs.destroy == 'true')
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIRECTORY }}
