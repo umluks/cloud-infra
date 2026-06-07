@@ -1,8 +1,16 @@
-name: Terraform Apply
+name: Terraform CI/CD
 
 on:
   workflow_dispatch:
     inputs:
+      plan:
+        description: 'Executar Terraform Plan?'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
       apply:
         description: 'Executar Terraform Apply?'
         required: true
@@ -11,13 +19,22 @@ on:
         options:
           - 'true'
           - 'false'
+      destroy:
+        description: 'Executar Terraform Destroy?'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  apply:
-    name: 'Terraform Apply'
+  terraform:
+    name: 'Terraform'
     runs-on: ubuntu-latest
     
     defaults:
@@ -43,6 +60,20 @@ jobs:
       - name: 'Terraform Init'
         run: terraform init
         
+      - name: 'Terraform Validate'
+        run: terraform validate
+        
+      - name: 'Terraform Fmt'
+        run: terraform fmt -check -recursive 
+        
+      - name: 'Terraform Plan'
+        run: terraform plan -out=tfplan
+        if: github.event.inputs.plan == 'true' || github.event.inputs.apply == 'true'
+
       - name: 'Terraform Apply'
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve tfplan
         if: github.event.inputs.apply == 'true'
+
+      - name: 'Terraform Destroy'
+        run: terraform destroy -auto-approve
+        if: github.event.inputs.destroy == 'true'
